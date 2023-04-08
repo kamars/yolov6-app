@@ -45,11 +45,11 @@ class my_yolov6():
         cv2.rectangle(image, p1, p2, color, thickness=lw, lineType=cv2.LINE_AA)
         if label:
             tf = max(lw - 1, 1)  # font thickness
-            w, h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=tf)[0]  # text width, height
+            w, h = cv2.getTextSize(label, 0, fontScale=lw / 6, thickness=tf)[0]  # text width, height
             outside = p1[1] - h - 3 >= 0  # label fits outside box
             p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
             cv2.rectangle(image, p1, p2, color, -1, cv2.LINE_AA)  # filled
-            cv2.putText(image, label, (p1[0], p1[1] - 2 if outside else p1[1] + h + 2), 0, lw / 3, txt_color,
+            cv2.putText(image, label, (p1[0], p1[1] - 2 if outside else p1[1] + h + 2), 0, lw / 6, txt_color,
                         thickness=tf, lineType=cv2.LINE_AA)
 
     @staticmethod
@@ -105,9 +105,10 @@ class my_yolov6():
 
         return image, img_src
 
-    def infer(self, source, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic_nms=False, max_det=1000):
+    def infer(self, source, conf_thres=0.45, iou_thres=0.45, classes=None, agnostic_nms=False, max_det=1000, path_img="null"):
         img, img_src = self.precess_image(source, self.img_size, self.stride, self.half)
         img = img.to(self.device)
+        temp_list = []
 
         if len(img.shape) == 3:
             img = img[None]
@@ -118,14 +119,21 @@ class my_yolov6():
 
         if len(det):
             det[:, :4] = self.rescale(img.shape[2:], det[:, :4], img_src.shape).round()
-            for *xyxy, conf, cls in reversed(det):
-                class_num = int(cls)  # integer class
-                label = f'{self.class_names[class_num]} {conf:.2f}'
-                self.plot_box_and_label(img_src, max(round(sum(img_src.shape) / 2 * 0.003), 2), xyxy, label, color=(255,0,0))
 
+            for *xyxy, conf, cls in reversed(det):
+                class_num = int(cls) # integer class
+                isLabel = f'{self.class_names[class_num]}'
+                if isLabel != "Other lesion":
+                    label = isLabel + f' {conf:.2f}'
+                    self.plot_box_and_label(img_src, max(round(sum(img_src.shape) / 2 * 0.003), 2), xyxy, label, color=(255,0,0))
+                
+                    # Label handling
+                    temp_dict = { "predict" : f"{label}" }
+                    # path_name = path_img.split("\\")
+                    temp_dict["coordinates"] = [int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])]
+                    # temp_dict["path"] = path_name[0] + "/" + path_name[1]
+                    temp_list.append(temp_dict)
+            
             img_src = np.asarray(img_src)
 
-        return img_src, len(det)
-
-
-
+        return img_src, len(det), temp_list
